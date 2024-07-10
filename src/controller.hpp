@@ -145,6 +145,9 @@ namespace drachtio {
     	return m_secret.empty() ? m_Config->isSecret( secret ) : 0 == m_secret.compare(secret);
     }
 
+    string getRoutingStyle(void) { return m_Config->getRoutingStyle(); }
+    string setRoutingStyle(const string& style) { return m_Config->setRoutingStyle(style); }
+
     nta_agent_t* getAgent(void) { return m_nta; }
     su_home_t* getHome(void) { return m_home; }
 

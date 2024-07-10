@@ -462,6 +462,7 @@ namespace drachtio {
                 {"blacklist-redis-master", required_argument, 0, 'W'},
                 {"blacklist-redis-password", required_argument, 0, 'X'},
                 {"version",    no_argument, 0, 'v'},
+                {"routing_style",    required_argument, 0, 'r'},
                 {0, 0, 0, 0}
             };
             /* getopt_long stores the option index here. */
@@ -545,6 +546,9 @@ namespace drachtio {
                       httpMethod = "POST";
                     }
                     break;
+
+                case 'r':
+                    m_Config->setRoutingStyle(optarg) ;
 
                 case 's':
                     m_nSofiaLoglevel = atoi( optarg ) ;
@@ -829,6 +833,8 @@ namespace drachtio {
         if (p && ::atoi(p) >= 0) m_tcpKeepaliveSecs = ::atoi(p);
         p = std::getenv("DRACHTIO_SECRET");
         if (p) m_secret = p;
+        p = std::getenv("DRACHTIO_ROUTING_STYLE");
+        if (p) m_Config->setRoutingStyle(p);
         p = std::getenv("DRACHTIO_CONSOLE_LOGGING");
         if (p && ::atoi(p) == 1) m_bConsoleLogging = true;
         p = std::getenv("DRACHTIO_PROMETHEUS_SCRAPE_PORT");

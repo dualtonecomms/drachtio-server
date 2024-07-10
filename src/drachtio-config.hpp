@@ -60,6 +60,10 @@ namespace drachtio {
         bool getConsoleLogTarget() ;
 
         bool isSecret( const string& secret ) const ;
+
+        string getRoutingStyle() const ;
+        string setRoutingStyle( const string& style ) ;
+
         severity_levels getLoglevel() ;
         unsigned int getSofiaLogLevel(void) ;
 

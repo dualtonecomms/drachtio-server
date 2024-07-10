@@ -246,11 +246,13 @@ namespace drachtio {
         return true ;  
     }
 
-    client_ptr ClientController::selectClientForRequestOutsideDialog(const char* keyword, const char* tag) {
+    client_ptr ClientController::selectClientForRequestOutsideDialog(const char* keyword, const char* tag ) {
+        string routing_style = m_pController->getRoutingStyle();
+
         string method_name = keyword ;
         transform(method_name.begin(), method_name.end(), method_name.begin(), ::tolower);
 
-        /* round robin select a client that has registered for this request type (and, optionally, tag)*/
+        /* select clients that have registered for this request type (and, optionally, tag)*/
         std::lock_guard<std::mutex> l( m_lock ) ;
         client_ptr client ;
         string matchId ;
@@ -263,41 +265,83 @@ namespace drachtio {
             else {
                 DR_LOG(log_info) << "No connected clients found to handle incoming " << method_name << " request"  ;
             }
-           return client ;           
+            return client ;
         }
 
+        map_of_request_types::iterator it = pair.first;
+        std::vector<map_of_request_types::iterator> clientList;
         unsigned int nOffset = 0 ;
-        map_of_request_type_offsets::const_iterator itOffset = m_map_of_request_type_offsets.find(method_name) ;
-        if( m_map_of_request_type_offsets.end() != itOffset ) {
-            unsigned int i = itOffset->second;
-            if( i < nPossibles ) nOffset = i ;
-            else nOffset = 0;
-        }
-        DR_LOG(log_debug) << "ClientController::selectClientForRequestOutsideDialog - there are " << nPossibles << 
-            " possible clients, we are starting with offset " << nOffset  ;
 
-        m_map_of_request_type_offsets.erase(itOffset) ;
-        m_map_of_request_type_offsets.insert(map_of_request_type_offsets::value_type(method_name, nOffset + 1)) ;
+        if (routing_style == "least_loaded") {        
+            // Count dialogs per client
+            std::map<client_ptr, int> clientDialogCount;
+
+            for (const auto& dialogEntry : m_mapDialogs) {
+                client_ptr dialogClient = dialogEntry.second.lock();
+                if (dialogClient) {
+                    clientDialogCount[dialogClient]++;
+                }
+            }
+                
+            DR_LOG(log_debug) << "ClientController::selectClientForRequestOutsideDialog - Least loaded routing enabled, ordering clients by dialog count" ;
+            for (auto it = pair.first; it != pair.second; ++it) {
+                clientList.push_back(it);
+            }
+            
+            std::sort(clientList.begin(), clientList.end(), [&](map_of_request_types::iterator a, map_of_request_types::iterator b) {
+                return clientDialogCount[a->second.client()] < clientDialogCount[b->second.client()];
+            });
+
+            // Log the client order
+            unsigned int nOrder = 0 ;
+            for (const auto& clientIt : clientList) {
+                nOrder++;
+                DR_LOG(log_debug) << "ClientController::selectClientForRequestOutsideDialog - Client " << clientIt->second.client()->endpoint_address() << " is in position " << nOrder << " with " << clientDialogCount[clientIt->second.client()] << " dialogs" ;
+            }
+        }
+        else {
+            map_of_request_type_offsets::const_iterator itOffset = m_map_of_request_type_offsets.find(method_name) ;
+            if( m_map_of_request_type_offsets.end() != itOffset ) {
+                unsigned int i = itOffset->second;
+                if( i < nPossibles ) nOffset = i ;
+                else nOffset = 0;
+            }
+
+            m_map_of_request_type_offsets.erase(itOffset) ;
+            m_map_of_request_type_offsets.insert(map_of_request_type_offsets::value_type(method_name, nOffset + 1)) ;
+            
+            std::advance(it, nOffset);
+        }
 
         unsigned int nTries = 0 ;
-        map_of_request_types::iterator it = pair.first ;
-        std::advance(it, nOffset) ;
+            
+        DR_LOG(log_debug) << "ClientController::selectClientForRequestOutsideDialog - there are " << nPossibles <<
+            " possible clients, we are starting with offset " << nOffset  ;
+        
         do {
-            if (it == pair.second) it = pair.first;
-    
+            if (routing_style == "least_loaded") {
+                if (nOffset >= clientList.size()) nOffset = 0;
+                it = clientList[nOffset];
+            } else {
+                if (it == pair.second) it = pair.first;
+            }
+
             RequestSpecifier& spec = it->second ;
             client = spec.client() ;
             if (!client) {
                 DR_LOG(log_debug) << "ClientController::route_request_outside_dialog - Removing disconnected client while iterating"  ;
-                it = m_request_types.erase( it ) ;
+                it = m_request_types.erase( it ) ; 
                 //pair = m_request_types.equal_range(method_name) ;
                 //nOffset = 0 ;
                 //nPossibles = std::distance( pair.first, pair.second ) ;
+                if (routing_style == "least_loaded") {
+                    clientList.erase(std::remove(clientList.begin(), clientList.end(), it), clientList.end());
+                }
             }
             else if (tag && !client->hasTag(tag)) {
                 DR_LOG(log_debug) << "ClientController::route_request_outside_dialog - client at offset " << nOffset << " does not support tag " << tag;
                 client = NULL;
-                it++;
+                nOffset++;
             }
             else {
                 DR_LOG(log_debug) << "ClientController::route_request_outside_dialog - Selected client at offset " << nOffset  ;                

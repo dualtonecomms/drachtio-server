@@ -67,6 +67,7 @@ namespace drachtio {
                     m_adminTcpPort = pt.get<unsigned int>("drachtio.admin.<xmlattr>.port", 9022) ;
                     m_adminTlsPort = pt.get<unsigned int>("drachtio.admin.<xmlattr>.tls-port", 0) ;
                     m_secret = pt.get<string>("drachtio.admin.<xmlattr>.secret", "admin") ;
+                    m_routingStyle = pt.get<string>("drachtio.admin.<xmlattr>.routing-style", "admin") ;
                     m_adminAddress = pt.get<string>("drachtio.admin") ;
                     string tlsValue =  pt.get<string>("drachtio.admin.<xmlattr>.tls", "false") ;
                     m_tcpKeepalive = pt.get<unsigned int>("drachtio.admin.<xmlattr>.tcp-keepalive", 45);
@@ -382,6 +383,13 @@ namespace drachtio {
         bool isSecret( const string& secret ) {
             return 0 == secret.compare( m_secret ) ;
         }
+        string getRoutingStyle() {
+            return m_routingStyle ;
+        }
+        string setRoutingStyle( const string& style ) {
+            m_routingStyle = style ;
+            return m_routingStyle ;
+        }
         bool generateCdrs(void) const {
             return m_bGenerateCdrs ;
         }
@@ -504,6 +512,7 @@ namespace drachtio {
         unsigned int m_adminTcpPort ;
         unsigned int m_adminTlsPort ;
         string m_secret ;
+        string m_routingStyle ;
         bool m_bGenerateCdrs ;
         bool m_bDaemon;
         bool m_bConsoleLogger ;
@@ -587,6 +596,12 @@ namespace drachtio {
     }
     bool DrachtioConfig::isSecret( const string& secret ) const {
         return m_pimpl->isSecret( secret ) ;
+    }
+    string DrachtioConfig::getRoutingStyle() const {
+        return m_pimpl->getRoutingStyle() ;
+    }
+    string DrachtioConfig::setRoutingStyle( const string& style ) {
+        return m_pimpl->setRoutingStyle( style ) ;
     }
     bool DrachtioConfig::getTlsFiles( std::string& keyFile, std::string& certFile, std::string& chainFile, std::string& dhParam ) const {
         return m_pimpl->getTlsFiles( keyFile, certFile, chainFile, dhParam ) ;
